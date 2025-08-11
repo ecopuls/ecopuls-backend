@@ -1,36 +1,65 @@
+// server.js
+const dotenv = require("dotenv");
+dotenv.config();
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
-
-// Load env variables
-dotenv.config();
+const session = require("express-session");
+const passport = require("./config/passport");
+const path = require("path");
 
 const app = express();
 
+// CORS setup
+app.use(cors({
+  origin: [
+    "https://ecopuls-frontend.onrender.com",
+    "https://eco-puls.com"
+  ],
+  credentials: true
+}));
+
 // Middleware
-app.use(cors());
 app.use(bodyParser.json());
 app.use(express.json());
 
-// Serve static files
-app.use(express.static('backend/public'));
+// Express session
+app.use(session({
+  secret: process.env.SESSION_SECRET || "defaultSecret",
+  resave: false,
+  saveUninitialized: true,
+}));
 
-// Routes
-const authRoutes = require("./routes/auth");
-app.use("/api/auth", authRoutes);
+// Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
-const feedbackRoute = require("./routes/feedback");
-app.use("/api/feedback", feedbackRoute);
+// Static files (optional)
+app.use("/static", express.static(path.join(__dirname, "public")));
 
-const customProductRoute = require("./routes/customProduct");
-app.use("/api/custom-product", customProductRoute);
+// API Routes
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/feedback", require("./routes/feedback"));
+app.use("/api/custom-products", require("./routes/customProduct"));
 
-// MongoDB connection
+// Optional: Serve frontend build
+// app.use(express.static(path.join(__dirname, "../frontend")));
+// app.get("*", (req, res) => {
+//   res.sendFile(path.join(__dirname, "../frontend", "index.html"));
+// });
+
+// MongoDB Connect & Start Server
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch(err => console.error("❌ MongoDB connection failed:", err.message));
+  .then(() => {
+    console.log("✅ MongoDB connected");
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error("❌ MongoDB connection error:", err.message);
+  });
